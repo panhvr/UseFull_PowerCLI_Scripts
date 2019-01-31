@@ -1,0 +1,91 @@
+ <# With new version of POWERCLI released now we are successfuly able to make conection to the connection broker server to automate 
+    check VMware Horizon View health checks and more 
+    
+Below code helps in scheduling a talk to very often for your view envitonment check the availble health status like ConnectionServerState,EventDatabaseHealth,ViewComposerHealth ect 
+Update your connection broker instead of CONNECTIONBROKER and saves results to text file under C:\Temp\ViewHealth.txt can be used read and email regularly 
+
+ #>
+
+
+
+
+$cred = Import-Clixml -Path C:\cred
+Connect-HVServer CONECTIONBROKER -Credential $cred
+
+$ViewAPI = $global:DefaultHVServers.ExtensionData
+
+If($ViewAPI.ADDomainHealth.ADDomainHealth_List().ConnectionServerState | ? {$_.status -notlike "OK"})
+{
+
+Write-output "ActiveDirectoryHealthStatus"|  Out-File C:\Temp\ViewHealth.txt
+$ViewAPI.ADDomainHealth.ADDomainHealth_List().ConnectionServerState | select ConnectionServerName,Status,TrustRelationship,Contactable |  Out-File -Append C:\Temp\ViewHealth.txt
+
+}
+
+If($ViewAPI.EventDatabaseHealth.EventDatabaseHealth_Get().data | ? {$_.status -notlike "CONNECTED"} )
+{
+
+Write-output "EventDBHealthStatus"|  Out-File -Append C:\Temp\ViewHealth.txt
+$ViewAPI.EventDatabaseHealth.EventDatabaseHealth_Get().data | ? {$_.status -notlike "CONNECTED"} | select ServerName,State,Error |  Out-File -Append C:\Temp\ViewHealth.txt
+
+}
+
+If($ViewAPI.ConnectionServerHealth.ConnectionServerHealth_List() |?{$_.status -notlike "OK"}| Select Name,Status)
+{
+Write-output "ConnectionBrokerHealthStatus"|  Out-File -Append C:\Temp\ViewHealth.txt
+$ViewAPI.ConnectionServerHealth.ConnectionServerHealth_List() |?{$_.status -notlike "OK"}| Select Name,Status |   Out-File -Append C:\Temp\ViewHealth.txt
+}
+
+If($ViewAPI.ConnectionServerHealth.ConnectionServerHealth_List().CertificateHealth | ?{$_.valid -notlike "True"})
+{
+Write-output "ConnectionBrokerCertificateHealthStatus"| Out-File -Append C:\Temp\ViewHealth.txt
+$ViewAPI.ConnectionServerHealth.ConnectionServerHealth_List().CertificateHealth | ?{$_.valid -notlike "True"} | select Valid,StartTime,ExpirationTime |  Out-File -Append C:\Temp\ViewHealth.txt
+}
+
+If($ViewAPI.SecurityServerHealth.SecurityServerHealth_List() | ?{$_.status -notlike "OK"})
+{
+Write-output "SecirityServerHealthStatus"| Out-File -Append C:\Temp\ViewHealth.txt
+$ViewAPI.SecurityServerHealth.SecurityServerHealth_List() | ?{$_.status -notlike "OK"} | select Name,Status,PcoipControllerStatus |  Out-File -Append C:\Temp\ViewHealth.txt
+
+}
+
+If($ViewAPI.SecurityServerHealth.SecurityServerHealth_List().CertificateHealth | ?{$_.valid -notlike "True"})
+{
+Write-output "SecirityServerCertificateHealthStatus"| Out-File -Append C:\Temp\ViewHealth.txt
+$ViewAPI.SecurityServerHealth.SecurityServerHealth_List().CertificateHealth | ?{$_.valid -notlike "True"} | select Valid,StartTime,ExpirationTime |  Out-File -Append C:\Temp\ViewHealth.txt
+}
+
+
+If($ViewAPI.ViewComposerHealth.ViewComposerHealth_List().ConnectionServerData |?{$_.status -notlike "OK"})
+{
+Write-output "ViewComposerHealth"| Out-File -Append C:\Temp\ViewHealth.txt
+$ViewAPI.ViewComposerHealth.ViewComposerHealth_List().ConnectionServerData |?{$_.status -notlike "OK"}| select Name,Status|  Out-File -Append C:\Temp\ViewHealth.txt
+}
+
+If($ViewAPI.ViewComposerHealth.ViewComposerHealth_List().ConnectionServerData.CertificateHealth | ?{$_.valid -notlike "True"})
+{
+Write-output "ViewComposerCertificateHealth"| Out-File -Append C:\Temp\ViewHealth.txt
+$ViewAPI.ViewComposerHealth.ViewComposerHealth_List().ConnectionServerData.CertificateHealth | ?{$_.valid -notlike "True"} | select Valid,StartTime,ExpirationTime |  Out-File -Append C:\Temp\ViewHealth.txt
+
+}
+If( $ViewAPI.VirtualCenterHealth.VirtualCenterHealth_List().ConnectionServerData| ? {$_.status -notlike "STATUS_UP"})
+{
+Write-output "ViewVirtualCenterHealth"| Out-File -Append C:\Temp\ViewHealth.txt
+$ViewAPI.VirtualCenterHealth.VirtualCenterHealth_List().ConnectionServerData| ? {$_.status -notlike "STATUS_UP"}| select Name,Status| Out-File -Append C:\Temp\ViewHealth.txt
+
+}
+
+If($ViewAPI.VirtualCenterHealth.VirtualCenterHealth_List().hostdata| ?{$_.status -notlike "CONNECTED"})
+{
+Write-output "ViewESXi'SHealth"| Out-File -Append C:\Temp\ViewHealth.txt
+$ViewAPI.VirtualCenterHealth.VirtualCenterHealth_List().hostdata| ?{$_.status -notlike "CONNECTED"}| select Name,Status| Out-File -Append C:\Temp\ViewHealth.txt
+}
+
+If($ViewAPI.VirtualCenterHealth.VirtualCenterHealth_List().DatastoreData | ?{$_.Accessible -notlike "True"})
+{
+Write-output "ViewDatastoreHealth"| Out-File -Append C:\Temp\ViewHealth.txt
+$ViewAPI.VirtualCenterHealth.VirtualCenterHealth_List().DatastoreData | ?{$_.Accessible -notlike "True"}| select name,Accessible| Out-File -Append C:\Temp\ViewHealth.txt
+
+}
+
+Disconnect-HVServer -Server * -Force -Confirm:$false
